@@ -1,0 +1,76 @@
+/* Example Context Map for Quizzes Tutor Example */
+ContextMap QuizzesTutor {
+	contains Tournament, CourseExecution, Quiz
+
+	Tournament [D]<-[U] CourseExecution
+
+	Tournament [D]<-[U] Quiz
+}
+
+BoundedContext Tournament  {
+	Aggregate Tournament {
+		Entity Tournament {
+			aggregateRoot
+			Integer id
+			DateTime startDate
+			DateTime endDate
+			- TournamentCreator tournamentCreator
+			- List<Participant> participants
+			- TournamentQuiz quiz
+		}
+		Entity Participant {
+			mapping CourseExecution::CourseExecution::CourseExecution {
+				alias student in root.students
+				String id maps root.id
+				Integer studentId maps student.id
+				String name maps student.name
+				String username maps student.username
+			}
+			DateTime enrollTime
+		}
+		Entity TournamentCreator {
+			mapping CourseExecution::CourseExecution::CourseExecution {
+				alias student in root.students
+				String id maps root.id
+				Integer studentId maps root.students.id
+				String name maps student.name
+				String username maps student.username
+			}
+		}
+		Entity TournamentQuiz {
+			mapping Quiz::Quiz::Quiz {
+				String id maps root.id
+				DateTime availableDate maps root.availableDate
+				DateTime conclusionDate maps root.conclusionDate
+			}
+		}
+	}
+}
+
+BoundedContext CourseExecution {
+	Aggregate CourseExecution {
+		Entity CourseExecution {
+			aggregateRoot
+			String id key
+			String name
+			- List<Student> students
+		}
+		Entity Student {
+			Integer id
+			String name
+			String username
+		}
+	}
+}
+
+BoundedContext Quiz {
+	Aggregate Quiz {
+		Entity Quiz {
+			aggregateRoot
+			String id key
+			DateTime availableDate
+			DateTime conclusionDate
+		}
+	}
+}
+
