@@ -1,75 +1,177 @@
 /* Example Context Map for Quizzes Tutor Example */
 ContextMap QuizzesTutor {
-	contains Tournament, CourseExecution, Quiz
+	contains TournamentContext, CourseExecutionContext, QuizContext, TopicContext
 
-	Tournament [D]<-[U] CourseExecution
+	TournamentContext [D]<-[U] CourseExecutionContext
 
-	Tournament [D]<-[U] Quiz
+	TournamentContext [D]<-[U] TopicContext
+
+	TournamentContext [D]<-[U] QuizContext
 }
 
-BoundedContext Tournament  {
-	Aggregate Tournament {
+BoundedContext TournamentContext  {
+	AntiCorruptionMapping CourseExecution mapping CourseExecutionContext::CourseExecutionAggregate {
+		String id maps CourseExecution.id 
+		String status maps CourseExecution.status 
+		String acronym maps CourseExecution.acronym
+		
+		InterInvariants
+			existCourseExecution: exists CourseExecution(id)
+			sameStatus: status == CourseExecution(id).status
+			sameAcronym: acronym == CourseExectution.acronym
+	}
+
+	AntiCorruptionMapping Topic mapping TopicContext::TopicAggregate { 
+		String id maps Topic.id
+		String courseId maps Topic.courseId
+		String name maps Topic.name
+			
+		InterInvariants
+			existsTopic: exist Topic(id)
+			sameCourse: courseId == Topic(id).courseId
+			sameName: name == Topic(id).name	 
+	}
+	// the mapping which refers to a upstream aggregate
+	AntiCorruptionMapping Student mapping CourseExecutionContext::CourseExecutionAggregate {
+		// the structural mapping, id corresponds to the CourseExecution.id attribute which is the key of the root entity
+		String id maps CourseExecution.id
+		// this is is a bit more complex because we want to refer to an entity that is not the aggregate root
+		// the structural mapping uses the entity name, which is ok because these name are unique inside de aggregate
+		Integer studentId maps Student.id 
+		String name maps Student.name 
+		String username maps Student.username 
+			
+		InterInvariants
+			// a data constraint, that should exist an instance of the CourseExecution root entity that has this key value
+			existsCourseExecution: exists CourseExecution(id)
+			// the data constraint uses the aggregate root instance CourseExecution(id) to query its list of students and obtain a student with the id
+			// note that CourseExecution(id).students is collection, CourseExecution also is a collection, the instances of CourseExecution
+			// so CourseExecution(id).students(studentId) is also a query	
+			existsStudent: exists CourseExecution(id).students(studentId)
+			// once we have the studendtId, which is also a key we can do queries for its elements, in this case name
+			sameName: name == Student(studentId).name
+			sameUsername: username == Student(studentId).username
+	}
+	
+	AntiCorruptionMapping Quiz mapping QuizContext::QuizAggregate {
+		String id maps Quiz.id 
+		String courseExecutionId maps Quiz.courseExecutionId
+		// there is no map but there is inter-invariant 
+		Integer numberOfQuestions
+		DateTime availableDate maps Quiz.availableDate 
+		DateTime conclusionDate maps Quiz.conclusionDate 
+			
+		InterInvariants
+			// identical to 'String id maps CourseExecution.id such that exists CourseExecution(id)'
+			existsQuiz: exists Quiz(id)
+			sameCourseExecution: courseExecutionId == Quiz(id).courseExecutionId
+			// this means that a complex expression may be used
+			sameNumberOfQuestions: numberOfQuestions == Quiz(id).quizQuestions.count
+			// identical to 'String name maps Student.name such that equals Student(studentId).name', but done on the root entity		
+			sameAvailableDate: availableDate == Quiz(id).availableDate
+			sameConclusionDate: conclusionDate == Quiz(id).conclusionDate
+	}
+	Aggregate TournamentAggregate {
 		Entity Tournament {
 			aggregateRoot
 			Integer id
-			DateTime startDate
-			DateTime endDate
+			Integer numberOfQuestions
+			DateTime startTime
+			DateTime endTime 
+			- TournamentCourseExecution tournamentCourseExecution
+			- List<TournamentTopic> tournamentTopics
 			- TournamentCreator tournamentCreator
 			- List<Participant> participants
 			- TournamentQuiz quiz
 		}
-		Entity Participant {
-			mapping CourseExecution::CourseExecution::CourseExecution {
-				alias student in root.students
-				String id maps root.id
-				Integer studentId maps student.id
-				String name maps student.name
-				String username maps student.username
-			}
+		Entity TournamentCourseExecution uses courseExecution from CourseExecution {
+			String id = courseExecution.id
+			String status = courseExecution.status
+			String acronym = courseExecution.acronym
+		}
+		Entity TournamentTopic uses topic from Topic {
+			String id = topic.id
+			String courseId = topic.courseId
+			String name = topic.name
+		}
+		Entity Participant uses student from Student {
+			// here is enough to say uses an attribute of a mapped entity, but the different attributes should be inter-consistent
+			// to make it explicit we define a variable of the mapping
+			String id = student.id
+			Integer studentId = student.studentId
+			String name = student.name
+			String username = student.username
 			DateTime enrollTime
 		}
-		Entity TournamentCreator {
-			mapping CourseExecution::CourseExecution::CourseExecution {
-				alias student in root.students
-				String id maps root.id
-				Integer studentId maps root.students.id
-				String name maps student.name
-				String username maps student.username
-			}
+		Entity TournamentCreator uses student from Student {
+			String id = student.id
+			Integer studentId = student.studentId
+			String name = student.name
+			String username = student.username
 		}
-		Entity TournamentQuiz {
-			mapping Quiz::Quiz::Quiz {
-				String id maps root.id
-				DateTime availableDate maps root.availableDate
-				DateTime conclusionDate maps root.conclusionDate
-			}
+		Entity TournamentQuiz uses quiz from Quiz { 
+			String id = quiz.id
+			String courseExecutionId = quiz.courseExecutionId
+			Integer numberOfQuestion = quiz.numberOfQuestions
+			DateTime availableDate = quiz.availableDate
+			DateTime conclusionDate = quiz.conclusionDate
 		}
+		IntraInvariants
+			creatorIsFinal: final root.tournamentCreator.id
+			courseExecutionIsFinal: final root.tournamentCourseExecution.id
+			finalAfterStart: now > root.startTime IMPLIES final root.startTime && final root.endTime && final root.numberOfQuestions && final root.tournamentTopics
+			creatorBelongsCourseExecution: root.tournamentCourseExecution.id == root.tournamentCreator.id
+			topicsAreOfCourse: root.topics.allMatch(topic -> topic.courseId == root.courseExecution.courseId)
+			startBeforeEnd: root.startTime < root.endTime
+			participantsBelongToCourseExecution: root.participants.allMatch(participant -> participant.id == root.tournamentCourseExecution.id)
+			studentDoesNotParticipateTwice: root.participants.count == root.participants.smap(participant -> participant.id).distinct.count
+			participantEnrollBeforeStart: root.participants.allMatch(participant -> participant.enrollTime < root.startTime)
+			ifCreateIsParticipantTheyHaveSameInformation: root.participants.filter(participant -> participant.studentId == root.tournamentCreator.studentId)
+					.allMatch(participant -> participant.name == root.tournamentCreator.name && participant.username == root.tournamentCreator.username)
+			quizIsOfCourseExecution: root.tournamentQuiz.courseExecutionId == root.tournamentCourseExecution.id
 	}
 }
 
-BoundedContext CourseExecution {
-	Aggregate CourseExecution {
+BoundedContext CourseExecutionContext {
+	Aggregate CourseExecutionAggregate {
 		Entity CourseExecution {
 			aggregateRoot
 			String id key
-			String name
+			String status
+			String acronym
 			- List<Student> students
 		}
 		Entity Student {
-			Integer id
+			Integer id key
 			String name
 			String username
 		}
 	}
 }
 
-BoundedContext Quiz {
-	Aggregate Quiz {
+BoundedContext QuizContext {
+	Aggregate QuizAggregate {
 		Entity Quiz {
 			aggregateRoot
 			String id key
+			String courseExecutionId
 			DateTime availableDate
 			DateTime conclusionDate
+			- List<QuizQuestion> quizQuestions
+		}
+		Entity QuizQuestion {
+			String question
+		}
+	}
+}
+
+BoundedContext TopicContext {
+	Aggregate TopicAggregate{
+		Entity Topic {
+			aggregateRoot
+			String id key
+			String courseId
+			String name
 		}
 	}
 }
