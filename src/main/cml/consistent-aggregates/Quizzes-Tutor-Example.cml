@@ -10,13 +10,18 @@ ContextMap QuizzesTutor {
 }
 
 BoundedContext TournamentContext  {
-	AntiCorruptionMapping CourseExecution mapping CourseExecutionContext::CourseExecutionAggregate {
+	AntiCorruptionTranslation CourseExecution mapping CourseExecutionContext::CourseExecutionAggregate { 
 		String id maps CourseExecution.id 
+		String courseId maps CourseExecution.courseId
 		String status maps CourseExecution.status 
-		String acronym maps CourseExecution.acronym
+		String acronym maps CourseExecution.acronym 
 		
 		InterInvariant existCourseExecution {
-			CourseExecution(id) != null
+			CourseExecution(id) != null   
+		}
+		
+		InterInvariant sameCourseId {
+			courseId == CourseExecution(id).courseId
 		}
 		
 		InterInvariant sameStatus {
@@ -28,7 +33,7 @@ BoundedContext TournamentContext  {
 		}
 	}
 
-	AntiCorruptionMapping Topic mapping TopicContext::TopicAggregate { 
+	AntiCorruptionTranslation Topic mapping TopicContext::TopicAggregate { 
 		String id maps Topic.id
 		String courseId maps Topic.courseId
 		String name maps Topic.name
@@ -46,7 +51,7 @@ BoundedContext TournamentContext  {
 		}	 
 	}
 	// the mapping which refers to a upstream aggregate
-	AntiCorruptionMapping Student mapping CourseExecutionContext::CourseExecutionAggregate {
+	AntiCorruptionTranslation Student mapping CourseExecutionContext::CourseExecutionAggregate {
 		// the structural mapping, id corresponds to the CourseExecution.id attribute which is the key of the root entity
 		String id maps CourseExecution.id
 		// this is is a bit more complex because we want to refer to an entity that is not the aggregate root
@@ -62,7 +67,7 @@ BoundedContext TournamentContext  {
 		
 		InterInvariant existsStudent {  
 			// the data constraint does a query on Student using the aggregate root key and the student key	
-			Student(id, studentId) != null 
+			Student(id, studentId) != null
 		}
 		
 		InterInvariant sameName {
@@ -75,12 +80,12 @@ BoundedContext TournamentContext  {
 		} 
 	}
 	
-	AntiCorruptionMapping Quiz mapping QuizContext::QuizAggregate {
+	AntiCorruptionTranslation Quiz mapping QuizContext::QuizAggregate {
 		String id maps Quiz.id 
 		String courseExecutionId maps Quiz.courseExecutionId
 		// there is no map but there is inter-invariant 
 		Integer numberOfQuestions
-		DateTime availableDate maps Quiz.availableDate 
+		DateTime availableDate maps Quiz.availableDate
 		DateTime conclusionDate maps Quiz.conclusionDate 
 			
 		InterInvariant existsQuiz {
@@ -94,7 +99,7 @@ BoundedContext TournamentContext  {
 		
 		InterInvariant sameNumberOfQuestions {
 			// this means that a complex expression may be used
-			numberOfQuestions == Quiz(id).quizQuestions.count 
+			numberOfQuestions == Quiz(id).quizQuestions.count
 		}
 		
 		InterInvariant sameAvailableDate { 
@@ -121,6 +126,7 @@ BoundedContext TournamentContext  {
 		}
 		Entity TournamentCourseExecution uses courseExecution from CourseExecution {
 			String id = courseExecution.id
+			String courseId = courseExecution.courseId
 			String status = courseExecution.status
 			String acronym = courseExecution.acronym
 		}
@@ -146,26 +152,26 @@ BoundedContext TournamentContext  {
 		}
 		Entity TournamentQuiz uses quiz from Quiz { 
 			String id = quiz.id
-			String courseExecutionId = quiz.courseExecutionId
+			String courseExecutionId = quiz.courseExecutionId 
 			Integer numberOfQuestion = quiz.numberOfQuestions
 			DateTime availableDate = quiz.availableDate
 			DateTime conclusionDate = quiz.conclusionDate
 		}
 		
 		IntraInvariant creatorIsFinal {
-			final root.tournamentCreator.id
+			root.tournamentCreator.id.final
 		}
 		
 		IntraInvariant courseExecutionIsFinal {
-			final root.tournamentCourseExecution.id	
+			root.tournamentCourseExecution.id.final	
 		} 
 
 		IntraInvariant finalAfterStart {
-			if (now > root.startTime)
-			then (final root.startTime && final root.endTime &&
-				final root.numberOfQuestions &&
-				final root.tournamentTopics
-			)  
+			if (now > root.startTime) 
+			then (root.startTime.final && root.endTime.final &&
+				root.numberOfQuestions.final &&
+				root.tournamentTopics.final
+			)
 		}
 
 		IntraInvariant creatorBelongsCourseExecution {
@@ -174,25 +180,25 @@ BoundedContext TournamentContext  {
 		
 		IntraInvariant topicsAreOfCourse {
 			root.tournamentTopics.allMatch(topic -> topic.courseId == root.tournamentCourseExecution.courseId)
-		}
+		} 
 
 		IntraInvariant startBeforeEnd {
-			root.startTime < root.endTime 
+			root.startTime < root.endTime
 		}
 		
 		IntraInvariant participantsBelongToCourseExecution {
-			root.participants.allMatch(participant -> participant.id == root.tournamentCourseExecution.id)
+			root.participants.allMatch(participant -> participant.id == root.tournamentCourseExecution.id) 
 		}
 
 		IntraInvariant studentDoesNotParticipateTwice {
-			root.participants.count == root.participants.map(participant -> participant.id).distinct.count 
+			root.participants.count == root.participants.map(participant -> participant.id).distinct.count
 		}
 		
 		IntraInvariant participantEnrollBeforeStart {
 			root.participants.allMatch(participant -> participant.enrollTime < root.startTime)	
 		}
 		
-		IntraInvariant ifCreateIsParticipantTheyHaveSameInformation {
+		IntraInvariant whenCreatorAlsoIsParticipantTheyHaveSameInformation {
 			root.participants.filter(participant -> participant.studentId == root.tournamentCreator.studentId)
 				.allMatch(participant -> participant.name == root.tournamentCreator.name && participant.username == root.tournamentCreator.username)
 		}		
@@ -208,6 +214,7 @@ BoundedContext CourseExecutionContext {
 		Entity CourseExecution {
 			aggregateRoot
 			String id key
+			String courseId
 			String status
 			String acronym
 			- List<Student> students
