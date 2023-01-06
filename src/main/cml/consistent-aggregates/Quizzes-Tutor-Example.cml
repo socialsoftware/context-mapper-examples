@@ -123,6 +123,14 @@ BoundedContext TournamentContext  {
 			- TournamentCreator tournamentCreator
 			- List<Participant> participants
 			- TournamentQuiz tournamentQuiz
+			- List<Answer> answers
+		}
+		Entity Answer {
+			String id
+			- List<Option> options
+		}
+		Entity Option {
+			String value
 		}
 		Entity TournamentCourseExecution uses courseExecution from CourseExecution {
 			String id = courseExecution.id
@@ -158,8 +166,22 @@ BoundedContext TournamentContext  {
 			DateTime conclusionDate = quiz.conclusionDate
 		}
 		
-		IntraAggregateInvariant creatorIsFinal {
-			root.tournamentCreator.id.final
+		IntraAggregateInvariant complexExpression4 {
+			root.answers.map(answer -> answer.options)
+				.allMatch(options -> options.count == 6 && true)
+		}
+		
+		IntraAggregateInvariant complexExpression3 {
+			root.answers.map(answer -> answer.options)
+				.filter(options -> options.filter(option -> option.value == "kdlkd").count == 5).count == 5 
+		}
+		
+		IntraAggregateInvariant complexExpression2 {
+			root.answers.map(answer -> answer.options.count == 5).count == 5
+		} 
+		
+		IntraAggregateInvariant complexExpression1 {
+			root.answers.map(answer -> answer.options).map(options -> options.count).count == 5
 		}
 		
 		IntraAggregateInvariant courseExecutionIsFinal {
