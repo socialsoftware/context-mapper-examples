@@ -99,7 +99,7 @@ BoundedContext TournamentContext  {
 		
 		InterAggregateInvariant sameNumberOfQuestions {
 			// this means that a complex expression may be used
-			numberOfQuestions == Quiz(id).quizQuestions.count
+			numberOfQuestions == Quiz(id).quizQuestions.count()
 		}
 		
 		InterAggregateInvariant sameAvailableDate { 
@@ -123,12 +123,15 @@ BoundedContext TournamentContext  {
 			- TournamentCreator tournamentCreator
 			- List<Participant> participants
 			- TournamentQuiz tournamentQuiz
+			// meaningless but added to test complex expressions
 			- List<Answer> answers
 		}
+		// meaningless but added to test complex expressions
 		Entity Answer {
 			String id
 			- List<Option> options
 		}
+		// meaningless but added to test complex expressions
 		Entity Option {
 			String value
 		}
@@ -166,34 +169,49 @@ BoundedContext TournamentContext  {
 			DateTime conclusionDate = quiz.conclusionDate
 		}
 		
+		IntraAggregateInvariant complexExpression7 {
+			root.answers.flatMap(answer -> answer.options)
+				.map(option -> option.value)
+				.findFirst()
+				.get() == "dkljd"
+		}
+		
+		IntraAggregateInvariant complexExpression6 {
+			root.answers.flatMap(answer -> answer.options).findAny().isEmpty()
+		}
+		
+		IntraAggregateInvariant complexExpression5 {
+			root.answers.map(answer -> answer.options)
+				.allMatch(options -> options.count() == 6 && true)
+		}
+		
 		IntraAggregateInvariant complexExpression4 {
 			root.answers.map(answer -> answer.options)
-				.allMatch(options -> options.count == 6 && true)
+				.filter(options -> options.filter(option -> option.value == "kdlkd").count() == 5).count() == 5 
 		}
 		
 		IntraAggregateInvariant complexExpression3 {
-			root.answers.map(answer -> answer.options)
-				.filter(options -> options.filter(option -> option.value == "kdlkd").count == 5).count == 5 
-		}
-		
-		IntraAggregateInvariant complexExpression2 {
-			root.answers.map(answer -> answer.options.count == 5).count == 5
+			root.answers.map(answer -> answer.options.count() == 5).count() == 5
 		} 
 		
+		IntraAggregateInvariant complexExpression2 {
+			root.answers.flatMap(answer -> answer.options).filter(option -> option.value == "dkkdj").count() == 0
+		}		
+		
 		IntraAggregateInvariant complexExpression1 {
-			root.answers.map(answer -> answer.options).map(options -> options.count).count == 5
+			root.answers.map(answer -> answer.options).map(options -> options.count()).count() == 5
 		}
 		
 		IntraAggregateInvariant courseExecutionIsFinal {
-			root.tournamentCourseExecution.id.final	
-		} 
+			final root.tournamentCourseExecution.id
+		}
 
 		IntraAggregateInvariant finalAfterStart {
 			if (now > root.startTime) 
-			then (root.startTime.final && root.endTime.final &&
-				root.numberOfQuestions.final &&
-				root.tournamentTopics.final
-			)
+			then (final root.startTime root.endTime
+				root.numberOfQuestions 
+				root.tournamentTopics
+			) 
 		}
 
 		IntraAggregateInvariant creatorBelongsCourseExecution {
@@ -213,7 +231,7 @@ BoundedContext TournamentContext  {
 		}
 
 		IntraAggregateInvariant studentDoesNotParticipateTwice {
-			root.participants.count == root.participants.map(participant -> participant.id).distinct.count
+			root.participants.count() == root.participants.map(participant -> participant.id).distinct().count()
 		}
 		
 		IntraAggregateInvariant participantEnrollBeforeStart {
