@@ -9,6 +9,65 @@ ContextMap QuizzesTutor {
 	TournamentContext [D]<-[U] QuizContext
 }
 
+BoundedContext CourseExecutionContext {
+	Aggregate CourseExecutionAggregate {
+		Entity CourseExecution {
+			aggregateRoot
+			String id key
+			String courseId
+			String status
+			String acronym
+			- List<Student> students
+			
+			Repository CourseExecutionRepository {
+				@CourseExecution findCourseExecutionById(String courseExecutionId);
+				@Student findStudentByCourseExecutionIdAndByStudentId(String courseExecutionId, String studentId);
+			}
+		}
+		Entity Student { 
+			Integer id key
+			String name
+			String username
+		}
+		
+	}
+}
+
+BoundedContext QuizContext {
+	Aggregate QuizAggregate {
+		Entity Quiz {
+			aggregateRoot
+			String id key
+			String courseExecutionId
+			DateTime availableDate
+			DateTime conclusionDate
+			- List<QuizQuestion> quizQuestions
+			
+			Repository QuizRepository {
+				@Quiz findQuizById(String id);
+			}
+		}
+		Entity QuizQuestion {
+			String question
+		}
+	}
+}
+
+BoundedContext TopicContext {
+	Aggregate TopicAggregate{
+		Entity Topic {
+			aggregateRoot
+			String id key
+			String courseId
+			String name
+			
+			Repository TopicRepository {
+				@Topic findTopicById(String id);
+			}
+		}
+	}
+}
+
 BoundedContext TournamentContext  {
 	AntiCorruptionTranslation CourseExecution mapping CourseExecutionContext::CourseExecutionAggregate { 
 		String id maps CourseExecution.id 
@@ -17,19 +76,19 @@ BoundedContext TournamentContext  {
 		String acronym maps CourseExecution.acronym 
 		
 		InterAggregateInvariant existsCourseExecution {
-			CourseExecution(id) != null   
+			findCourseExecutionById(id) != null 
 		}
 		
 		InterAggregateInvariant sameCourseId {
-			courseId == CourseExecution(id).courseId
+			courseId == findCourseExecutionById(id).courseId
 		}
 		
 		InterAggregateInvariant sameStatus {
-			status == CourseExecution(id).status
+			status == findCourseExecutionById(id).status
 		}
 		
 		InterAggregateInvariant sameAcronym {
-			status == CourseExecution(id).acronym
+			acronym == findCourseExecutionById(id).acronym
 		}
 	}
 
@@ -39,15 +98,15 @@ BoundedContext TournamentContext  {
 		String name maps Topic.name
 			
 		InterAggregateInvariant existsTopic {
-			Topic(id) != null
+			findTopicById(id) != null
 		}
 		
 		InterAggregateInvariant sameCourse {
-			courseId == Topic(id).courseId	
+			courseId == findTopicById(id).courseId	
 		} 
 		
 		InterAggregateInvariant sameName {
-			name == Topic(id).name
+			name == findTopicById(id).name
 		}	 
 	}
 	// the mapping which refers to a upstream aggregate
@@ -62,21 +121,21 @@ BoundedContext TournamentContext  {
 			
 		InterAggregateInvariant existsCourseExecution { 
 			// a data constraint, that should exist an instance of the CourseExecution root entity that has this key value
-			CourseExecution(id) != null
+			findCourseExecutionById(id) != null
 		}
 		
 		InterAggregateInvariant existsStudent {  
 			// the data constraint does a query on Student using the aggregate root key and the student key	
-			Student(id, studentId) != null
+			findStudentByCourseExecutionIdAndByStudentId(id, studentId) != null
 		}
 		
 		InterAggregateInvariant sameName {
 			// does the query and check the name
-			name == Student(id, studentId).name
+			name == findStudentByCourseExecutionIdAndByStudentId(id, studentId).name
 		}
 		
 		InterAggregateInvariant sameUsername {
-			username == Student(id, studentId).username	
+			username == findStudentByCourseExecutionIdAndByStudentId(id, studentId).username	
 		} 
 	}
 	
@@ -90,25 +149,25 @@ BoundedContext TournamentContext  {
 			
 		InterAggregateInvariant existsQuiz {
 			// identical to 'String id maps CourseExecution.id such that exists CourseExecution(id)'
-			Quiz(id) != null
+			findQuizById(id) != null
 		}
 		
 		InterAggregateInvariant sameCourseExecution {
-			courseExecutionId == Quiz(id).courseExecutionId
+			courseExecutionId == findQuizById(id).courseExecutionId
 		}
 		
 		InterAggregateInvariant sameNumberOfQuestions {
 			// this means that a complex expression may be used
-			numberOfQuestions == Quiz(id).quizQuestions.count()
+			numberOfQuestions == findQuizById(id).quizQuestions.count()
 		}
 		
 		InterAggregateInvariant sameAvailableDate { 
 			// identical to 'String name maps Student.name such that equals Student(studentId).name', but done on the root entity		
-			availableDate == Quiz(id).availableDate	
+			availableDate == findQuizById(id).availableDate	
 		}
 		
 		InterAggregateInvariant sameConclusionDate {
-			conclusionDate == Quiz(id).conclusionDate	
+			conclusionDate == findQuizById(id).conclusionDate	
 		}
 	}
 	Aggregate TournamentAggregate {
@@ -169,6 +228,8 @@ BoundedContext TournamentContext  {
 			DateTime conclusionDate = quiz.conclusionDate
 		}
 		
+		// complexExpressions N are domain problem meaningless but
+		// interesting to exercise the expression language
 		IntraAggregateInvariant complexExpression7 {
 			root.answers.flatMap(answer -> answer.options)
 				.map(option -> option.value)
@@ -204,6 +265,10 @@ BoundedContext TournamentContext  {
 		
 		IntraAggregateInvariant courseExecutionIsFinal {
 			final root.tournamentCourseExecution.id
+		}
+		
+		IntraAggregateInvariant creatorIsFinal {
+			final root.tournamentCreator.id
 		}
 
 		IntraAggregateInvariant finalAfterStart {
@@ -245,51 +310,6 @@ BoundedContext TournamentContext  {
 
 		IntraAggregateInvariant quizIsOfCourseExecution {
 			root.tournamentQuiz.courseExecutionId == root.tournamentCourseExecution.id
-		}
-	}
-}
-
-BoundedContext CourseExecutionContext {
-	Aggregate CourseExecutionAggregate {
-		Entity CourseExecution {
-			aggregateRoot
-			String id key
-			String courseId
-			String status
-			String acronym
-			- List<Student> students
-		}
-		Entity Student {
-			Integer id key
-			String name
-			String username
-		}
-	}
-}
-
-BoundedContext QuizContext {
-	Aggregate QuizAggregate {
-		Entity Quiz {
-			aggregateRoot
-			String id key
-			String courseExecutionId
-			DateTime availableDate
-			DateTime conclusionDate
-			- List<QuizQuestion> quizQuestions
-		}
-		Entity QuizQuestion {
-			String question
-		}
-	}
-}
-
-BoundedContext TopicContext {
-	Aggregate TopicAggregate{
-		Entity Topic {
-			aggregateRoot
-			String id key
-			String courseId
-			String name
 		}
 	}
 }
