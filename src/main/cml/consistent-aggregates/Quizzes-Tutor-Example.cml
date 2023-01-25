@@ -11,7 +11,7 @@ ContextMap QuizzesTutor {
 
 BoundedContext CourseExecutionContext {
 	Aggregate CourseExecutionAggregate {
-		Entity CourseExecution {
+		Entity CourseExecutionEntity {
 			aggregateRoot
 			String id key
 			String courseId
@@ -20,8 +20,8 @@ BoundedContext CourseExecutionContext {
 			- List<Student> students
 			
 			Repository CourseExecutionRepository {
-				@CourseExecution findCourseExecutionById(String courseExecutionId);
-				@Student findStudentByCourseExecutionIdAndByStudentId(String courseExecutionId, String studentId);
+				@CourseExecutionEntity findCourseExecutionById(String courseExecutionId);
+				@Student findStudentByCourseExecutionIdAndByStudentId(String courseExecutionId, Integer studentId);
 			}
 		}
 		Entity Student { 
@@ -35,7 +35,7 @@ BoundedContext CourseExecutionContext {
 
 BoundedContext QuizContext {
 	Aggregate QuizAggregate {
-		Entity Quiz {
+		Entity QuizEntity {
 			aggregateRoot
 			String id key
 			String courseExecutionId
@@ -44,7 +44,7 @@ BoundedContext QuizContext {
 			- List<QuizQuestion> quizQuestions
 			
 			Repository QuizRepository {
-				@Quiz findQuizById(String id);
+				@QuizEntity findQuizById(String id);
 			}
 		}
 		Entity QuizQuestion {
@@ -55,14 +55,14 @@ BoundedContext QuizContext {
 
 BoundedContext TopicContext {
 	Aggregate TopicAggregate{
-		Entity Topic {
+		Entity TopicEntity {
 			aggregateRoot
 			String id key
 			String courseId
 			String name
 			
 			Repository TopicRepository {
-				@Topic findTopicById(String id);
+				@TopicEntity findTopicById(String id);
 			}
 		}
 	}
@@ -70,10 +70,10 @@ BoundedContext TopicContext {
 
 BoundedContext TournamentContext  {
 	AntiCorruptionTranslation CourseExecution mapping CourseExecutionContext::CourseExecutionAggregate { 
-		String id maps CourseExecution.id 
-		String courseId maps CourseExecution.courseId
-		String status maps CourseExecution.status 
-		String acronym maps CourseExecution.acronym 
+		String id maps CourseExecutionEntity.id 
+		String courseId maps CourseExecutionEntity.courseId
+		String status maps CourseExecutionEntity.status 
+		String acronym maps CourseExecutionEntity.acronym 
 		
 		InterAggregateInvariant existsCourseExecution {
 			findCourseExecutionById(id) != null 
@@ -93,9 +93,9 @@ BoundedContext TournamentContext  {
 	}
 
 	AntiCorruptionTranslation Topic mapping TopicContext::TopicAggregate { 
-		String id maps Topic.id
-		String courseId maps Topic.courseId
-		String name maps Topic.name
+		String id maps TopicEntity.id
+		String courseId maps TopicEntity.courseId
+		String name maps TopicEntity.name
 			
 		InterAggregateInvariant existsTopic {
 			findTopicById(id) != null
@@ -112,7 +112,7 @@ BoundedContext TournamentContext  {
 	// the mapping which refers to a upstream aggregate
 	AntiCorruptionTranslation Student mapping CourseExecutionContext::CourseExecutionAggregate {
 		// the structural mapping, id corresponds to the CourseExecution.id attribute which is the key of the root entity
-		String id maps CourseExecution.id
+		String id maps CourseExecutionEntity.id
 		// this is is a bit more complex because we want to refer to an entity that is not the aggregate root
 		// the structural mapping uses the entity name, which is ok because these name are unique inside de aggregate
 		Integer studentId maps Student.id 
@@ -126,7 +126,7 @@ BoundedContext TournamentContext  {
 		
 		InterAggregateInvariant existsStudent {  
 			// the data constraint does a query on Student using the aggregate root key and the student key	
-			findStudentByCourseExecutionIdAndByStudentId(id, studentId) != null
+			findStudentByCourseExecutionIdAndByStudentId(id, studentId) != null 
 		}
 		
 		InterAggregateInvariant sameName {
@@ -140,12 +140,12 @@ BoundedContext TournamentContext  {
 	}
 	
 	AntiCorruptionTranslation Quiz mapping QuizContext::QuizAggregate {
-		String id maps Quiz.id 
-		String courseExecutionId maps Quiz.courseExecutionId
+		String id maps QuizEntity.id 
+		String courseExecutionId maps QuizEntity.courseExecutionId
 		// there is no map but there is inter-invariant 
 		Integer numberOfQuestions
-		DateTime availableDate maps Quiz.availableDate
-		DateTime conclusionDate maps Quiz.conclusionDate 
+		DateTime availableDate maps QuizEntity.availableDate
+		DateTime conclusionDate maps QuizEntity.conclusionDate 
 			
 		InterAggregateInvariant existsQuiz {
 			// identical to 'String id maps CourseExecution.id such that exists CourseExecution(id)'
@@ -234,7 +234,7 @@ BoundedContext TournamentContext  {
 			root.answers.flatMap(answer -> answer.options)
 				.map(option -> option.value)
 				.findFirst()
-				.get() == "dkljd"
+				.get() == "dummy"
 		}
 		
 		IntraAggregateInvariant complexExpression6 {
@@ -248,7 +248,7 @@ BoundedContext TournamentContext  {
 		
 		IntraAggregateInvariant complexExpression4 {
 			root.answers.map(answer -> answer.options)
-				.filter(options -> options.filter(option -> option.value == "kdlkd").count() == 5).count() == 5 
+				.filter(options -> options.filter(option -> option.value == "dummy").count() == 5).count() == 5 
 		}
 		
 		IntraAggregateInvariant complexExpression3 {
@@ -256,7 +256,7 @@ BoundedContext TournamentContext  {
 		} 
 		
 		IntraAggregateInvariant complexExpression2 {
-			root.answers.flatMap(answer -> answer.options).filter(option -> option.value == "dkkdj").count() == 0
+			root.answers.flatMap(answer -> answer.options).filter(option -> option.value == "dummy").count() == 0
 		}		
 		
 		IntraAggregateInvariant complexExpression1 {
