@@ -111,21 +111,23 @@ BoundedContext TournamentContext  {
 	}
 	// the mapping which refers to a upstream aggregate
 	AntiCorruptionTranslation Student mapping CourseExecutionContext::CourseExecutionAggregate {
-		// the structural mapping, id corresponds to the CourseExecution.id attribute which is the key of the root entity
+		// the structural mapping, id corresponds to the CourseExecutionEntity.id attribute which is the key of the root entity
 		String id maps CourseExecutionEntity.id
 		// this is is a bit more complex because we want to refer to an entity that is not the aggregate root
-		// the structural mapping uses the entity name, which is ok because these name are unique inside de aggregate
+		// the structural mapping uses the entity name, which is ok because these name are unique inside the aggregate
 		Integer studentId maps Student.id 
 		String name maps Student.name 
 		String username maps Student.username 
 			
 		InterAggregateInvariant existsCourseExecution { 
-			// a data constraint, that should exist an instance of the CourseExecution root entity that has this key value
+			// a data constraint, that should exist an instance of the CourseExecutionEntity root entity that has this key value
+			// it uses a query that is defined in the aggregate repository
 			findCourseExecutionById(id) != null
 		}
 		
 		InterAggregateInvariant existsStudent {  
 			// the data constraint does a query on Student using the aggregate root key and the student key	
+			// the query is defined in aggregate repository
 			findStudentByCourseExecutionIdAndByStudentId(id, studentId) != null 
 		}
 		
@@ -142,13 +144,12 @@ BoundedContext TournamentContext  {
 	AntiCorruptionTranslation Quiz mapping QuizContext::QuizAggregate {
 		String id maps QuizEntity.id 
 		String courseExecutionId maps QuizEntity.courseExecutionId
-		// there is no map but there is inter-invariant 
+		// there is no map but there is inter-invariant that works as a calculated attribute
 		Integer numberOfQuestions
 		DateTime availableDate maps QuizEntity.availableDate
 		DateTime conclusionDate maps QuizEntity.conclusionDate 
 			
 		InterAggregateInvariant existsQuiz {
-			// identical to 'String id maps CourseExecution.id such that exists CourseExecution(id)'
 			findQuizById(id) != null
 		}
 		
@@ -162,7 +163,6 @@ BoundedContext TournamentContext  {
 		}
 		
 		InterAggregateInvariant sameAvailableDate { 
-			// identical to 'String name maps Student.name such that equals Student(studentId).name', but done on the root entity		
 			availableDate == findQuizById(id).availableDate	
 		}
 		
@@ -182,19 +182,21 @@ BoundedContext TournamentContext  {
 			- TournamentCreator tournamentCreator
 			- List<Participant> participants
 			- TournamentQuiz tournamentQuiz
-			// meaningless but added to test complex expressions
+			// meaningless from the domain perspective, but added to test complex expressions
 			- List<Answer> answers
 		}
-		// meaningless but added to test complex expressions
+		// meaningless from the domain perspective, but added to test complex expressions
 		Entity Answer {
 			String id
 			- List<Option> options
 		}
-		// meaningless but added to test complex expressions
+		// meaningless from the domain perspective, but added to test complex expressions
 		Entity Option {
 			String value
 		}
 		Entity TournamentCourseExecution uses courseExecution from CourseExecution {
+			// here is enough to say uses an attribute of a mapped entity, but the different attributes should be inter-consistent
+			// to make it explicit we define a variable, courseExecution, of the translation mapping. CourseExecution 
 			String id = courseExecution.id
 			String courseId = courseExecution.courseId
 			String status = courseExecution.status
@@ -206,8 +208,6 @@ BoundedContext TournamentContext  {
 			String name = topic.name
 		}
 		Entity Participant uses student from Student {
-			// here is enough to say uses an attribute of a mapped entity, but the different attributes should be inter-consistent
-			// to make it explicit we define a variable of the mapping
 			String id = student.id
 			Integer studentId = student.studentId
 			String name = student.name
@@ -228,89 +228,128 @@ BoundedContext TournamentContext  {
 			DateTime conclusionDate = quiz.conclusionDate
 		}
 		
-		// complexExpressions N are domain problem meaningless but
-		// interesting to exercise the expression language
-		IntraAggregateInvariant complexExpression7 {
-			root.answers.flatMap(answer -> answer.options)
-				.map(option -> option.value)
-				.findFirst()
-				.get() == "dummy"
-		}
-		
-		IntraAggregateInvariant complexExpression6 {
-			root.answers.flatMap(answer -> answer.options).findAny().isEmpty()
-		}
-		
-		IntraAggregateInvariant complexExpression5 {
-			root.answers.map(answer -> answer.options)
-				.allMatch(options -> options.count() == 6 && true)
-		}
-		
-		IntraAggregateInvariant complexExpression4 {
-			root.answers.map(answer -> answer.options)
-				.filter(options -> options.filter(option -> option.value == "dummy").count() == 5).count() == 5 
-		}
-		
-		IntraAggregateInvariant complexExpression3 {
-			root.answers.map(answer -> answer.options.count() == 5).count() == 5
-		} 
-		
-		IntraAggregateInvariant complexExpression2 {
-			root.answers.flatMap(answer -> answer.options).filter(option -> option.value == "dummy").count() == 0
-		}		
-		
-		IntraAggregateInvariant complexExpression1 {
-			root.answers.map(answer -> answer.options).map(options -> options.count()).count() == 5
-		}
-		
 		IntraAggregateInvariant courseExecutionIsFinal {
+			// the tournament cannot change course execution
 			final root.tournamentCourseExecution.id
 		}
 		
 		IntraAggregateInvariant creatorIsFinal {
+			// the tournament creator cannot change
 			final root.tournamentCreator.id
 		}
 
 		IntraAggregateInvariant finalAfterStart {
+			// after the tournament starts the it is not possible to change these attributes
 			if (now > root.startTime) 
-			then (final root.startTime root.endTime
+			then (final root.startTime 
+				root.endTime
+				root.participants
 				root.numberOfQuestions 
 				root.tournamentTopics
 			) 
 		}
 
 		IntraAggregateInvariant creatorBelongsCourseExecution {
+			// the tournament creator should be enrolled in the tournament course execution
 			root.tournamentCourseExecution.id == root.tournamentCreator.id
 		}
 		
 		IntraAggregateInvariant topicsAreOfCourse {
+			// all tournament topics are of same course execution course 
 			root.tournamentTopics.allMatch(topic -> topic.courseId == root.tournamentCourseExecution.courseId)
 		} 
 
 		IntraAggregateInvariant startBeforeEnd {
+			// tournament start time before end time
 			root.startTime < root.endTime
 		}
 		
 		IntraAggregateInvariant participantsBelongToCourseExecution {
+			// all participants are enrolled in the tournament course execution
 			root.participants.allMatch(participant -> participant.id == root.tournamentCourseExecution.id) 
 		}
 
 		IntraAggregateInvariant studentDoesNotParticipateTwice {
+			// a participant is not registered twice
 			root.participants.count() == root.participants.map(participant -> participant.id).distinct().count()
 		}
 		
 		IntraAggregateInvariant participantEnrollBeforeStart {
+			// participants cannot enroll after tournament start
 			root.participants.allMatch(participant -> participant.enrollTime < root.startTime)	
 		}
 		
 		IntraAggregateInvariant whenCreatorAlsoIsParticipantTheyHaveSameInformation {
+			// if tournament creator is also participant, the their information should be consistent
 			root.participants.filter(participant -> participant.studentId == root.tournamentCreator.studentId)
 				.allMatch(participant -> participant.name == root.tournamentCreator.name && participant.username == root.tournamentCreator.username)
 		}		
 
 		IntraAggregateInvariant quizIsOfCourseExecution {
+			// tournament quiz is of course execution
 			root.tournamentQuiz.courseExecutionId == root.tournamentCourseExecution.id
 		}
+		
+		// begin of complexExpressionN are domain problem meaningless but
+		// interesting to exercise the expression language
+		IntraAggregateInvariant complexExpression7 {
+			// given the root entity attribute answers generate a collection of the options of each answer
+			root.answers.flatMap(answer -> answer.options)
+				// given the collection of options generate the collection of values
+				.map(option -> option.value)
+				// find first
+				.findFirst()
+				// compare with string
+				.get() == "dummy"
+		}
+		
+		IntraAggregateInvariant complexExpression6 {
+			// given the root entity attribute answers
+			root.answers
+				// generate a collection of the options of each answer
+				.flatMap(answer -> answer.options)
+				// find any
+				.findAny()
+				// check if there is a result
+				.isEmpty()
+		}
+		
+		IntraAggregateInvariant complexExpression5 {
+			root.answers.map(answer -> answer.options)
+				// all options collections must have 6 elements
+				.allMatch(options -> options.count() == 6 && true)
+		}
+		
+		IntraAggregateInvariant complexExpression4 {
+			root.answers.map(answer -> answer.options)
+				// obtain the options collections where the number of elements with value "dummy" is 5
+				.filter(options -> options.filter(option -> option.value == "dummy").count() == 5)
+				// there should be 5 of such options collections
+				.count() == 5 
+		}
+		
+		IntraAggregateInvariant complexExpression3 {
+			root.answers
+				// generate a list o booleans where the element is true if each answer has 5 options and false otherwise 
+				.map(answer -> answer.options.count() == 5)
+				// the collection of booleans should have 5 elements
+				.count() == 5
+		} 
+		
+		IntraAggregateInvariant complexExpression2 {
+			root.answers
+				.flatMap(answer -> answer.options)
+				.filter(option -> option.value == "dummy")
+				.count() == 0
+		}		
+		
+		IntraAggregateInvariant complexExpression1 {
+			root.answers
+				.map(answer -> answer.options)
+				.map(options -> options.count())
+				.count() == 5
+		}
+		// end of complexExpressionN 
 	}
 }
 
