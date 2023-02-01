@@ -1,0 +1,125 @@
+ContextMap InsuranceContextMap {
+	type = SYSTEM_LANDSCAPE
+	state = TO_BE
+	
+	/* Add bounded contexts to this context map: */
+	contains CustomerManagementContext
+	contains PolicyManagementContext
+
+	
+	/* Define the context relationships: */ 
+	
+
+	PolicyManagementContext [D,CF]<-[U,OHS,PL] CustomerManagementContext {
+		implementationTechnology = "RESTfulHTTP"
+		exposedAggregates = Customers
+	}
+	
+}
+
+BoundedContext CustomerManagementContext {
+	Aggregate Customers {		
+		Entity Customer { 
+			aggregateRoot
+			int cid key
+			String firstname
+			String lastname
+			- List<Address> addresses
+			
+			Repository CustomerInformationHolderRepository {
+				@Customer retrieveCustomerById(int id);
+			}
+		}
+
+		Entity Address {
+			String street
+			String city
+		}
+		
+	}
+	
+}
+
+BoundedContext PolicyManagementContext implements PolicyManagementDomain {
+	AntiCorruptionTranslation CustomerProxy mapping CustomerManagementContext::Customers {
+		int id maps Customer.cid
+		String givenName maps Customer.firstname
+		String surname maps Customer.lastname
+		
+		InterAggregateInvariant customerExistsInCustomerManagementContext {
+			null != retrieveCustomerById(id) && id == retrieveCustomerById(id).cid
+		}
+	}
+	
+	type = FEATURE
+	domainVisionStatement = "This bounded context manages the contracts and policies of the customers."
+	responsibilities = "Offers, Contracts, Policies"
+	implementationTechnology = "Java, Spring App"
+	
+	Aggregate Offers {		
+		Entity Offer {
+			aggregateRoot
+			
+			int offerId
+			- Customer client
+			- List<Product> products
+			BigDecimal price
+		}
+	}
+	
+	Aggregate Products {		
+		Entity Product {
+			aggregateRoot
+			
+			- ProductId identifier
+			String productName
+		}
+		
+		ValueObject ProductId {
+			int productId key
+		}
+	}
+	
+	Aggregate Contract {		
+		Entity Contract {
+			aggregateRoot
+			
+			- ContractId identifier
+			- Customer client
+			- List<Product> products
+		}
+		
+		ValueObject ContractId {
+			int contractId key
+		}
+		
+		Entity Policy {
+			int policyNr
+			- Contract contract
+			BigDecimal price
+		}
+	}
+}
+
+Domain InsuranceDomain {
+	Subdomain CustomerManagementDomain {
+		type = CORE_DOMAIN
+		domainVisionStatement = "Subdomain managing everything customer-related."
+	}
+	Subdomain PolicyManagementDomain {
+		type = CORE_DOMAIN
+		domainVisionStatement = "Subdomain managing contracts and policies."
+	}
+	Subdomain PrintingDomain {
+		type = SUPPORTING_DOMAIN
+		domainVisionStatement = "Service (external system) to solve printing for all kinds of documents (debts, policies, etc.)"
+	}
+	Subdomain RiskManagementDomain {
+		type = GENERIC_SUBDOMAIN
+		domainVisionStatement = "Subdomain supporting everything which relates to risk management."
+	}
+	Subdomain DebtsDomain {
+		type = GENERIC_SUBDOMAIN
+		domainVisionStatement = "Subomain including everything related to the incoming money (debts, dunning, etc.)"
+	}
+}
