@@ -40,7 +40,12 @@ BoundedContext CustomerManagementContext {
 	
 }
 
-BoundedContext PolicyManagementContext implements PolicyManagementDomain {
+BoundedContext PolicyManagementContext implements PolicyManagementDomain {	
+	type = FEATURE
+	domainVisionStatement = "This bounded context manages the contracts and policies of the customers."
+	responsibilities = "Offers, Contracts, Policies"
+	implementationTechnology = "Java, Spring App"
+	
 	AntiCorruptionTranslation CustomerProxy mapping CustomerManagementContext::Customers {
 		int id maps Customer.cid
 		String givenName maps Customer.firstname
@@ -50,11 +55,6 @@ BoundedContext PolicyManagementContext implements PolicyManagementDomain {
 			null != retrieveCustomerById(id) && id == retrieveCustomerById(id).cid
 		}
 	}
-	
-	type = FEATURE
-	domainVisionStatement = "This bounded context manages the contracts and policies of the customers."
-	responsibilities = "Offers, Contracts, Policies"
-	implementationTechnology = "Java, Spring App"
 	
 	Aggregate Offers {		
 		Entity Offer {
