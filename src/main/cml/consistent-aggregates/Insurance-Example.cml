@@ -51,7 +51,7 @@ BoundedContext PolicyManagementContext implements PolicyManagementDomain {
 		String givenName maps Customer.firstname
 		String surname maps Customer.lastname
 		
-		InterAggregateInvariant customerExistsInCustomerManagementContext {
+		Invariant customerExistsInCustomerManagementContext {
 			null != retrieveCustomerById(id) && id == retrieveCustomerById(id).cid
 		}
 	}
