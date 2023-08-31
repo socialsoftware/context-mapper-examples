@@ -1,0 +1,318 @@
+/* Example Context Map for Quizzes Tutor Example */
+ContextMap QuizzesTutor {
+	contains TournamentContext, CourseExecutionContext, TopicContext, QuizContext
+
+	TournamentContext [SK]<->[SK] CourseExecutionContext
+
+	TournamentContext [D]<-[U] TopicContext
+
+	TournamentContext [D]<-[U] QuizContext
+}
+
+BoundedContext CourseExecutionContext {
+	Application {
+		Service CourseExecutionServices {
+			void removeCourseExecution(Integer courseExecutionId);
+//			{
+//				// service operations have body (current grammar does not allow)
+//				// the body can have the predicates update, query, create and delete
+//				// queries refer to queries in the repository
+//				query courseExecution = findCourseExecutionById(courseExecutionId)
+//				// deletes refer to entities obtained by queries
+//				delete courseExecution
+//				// When the service finishes the event is published (current grammar requires the definition of channels)
+//				// The event has a constructor to define the information it contains (current grammar does not have the constructor)
+//				publish RemoveCourseExecutionEvent(courseExecutionId)
+//			}
+			void removeStudentFromCourseExecution(Integer courseExecutionId, Integer studentId);
+//			{
+//				query courseExecution = findCourseExecutionById(courseExecutionId)
+//				// updates refer to attributes and can have use complex expressions
+//				update courseExecution.students to courseExecution.students.filter(student -> student.studentId != studentId)
+//				// the event is published
+//				publish UnenrolledStudentEvent(courseExecutionId,studentId) 
+//			}
+			@CourseExecutionValue getCourseExecutionByCourseExecutionId(Integer courseExecutionId);
+//			{
+//				// there are service operations that can be queries only
+//				query courseExecution = findCourseExecutionById(courseExecutionId)
+//				// the entity is returned
+//				return CourseExecutionValue(courseExecution)
+//			}
+			@Student getStudentByCourseExecutionIdAndStudentId(Integer courseExecutionId, Integer studentId);
+//			{
+//				query student = findStudentByCourseExecutionIdAndByStudentId(courseExecutionId, studentId)
+//				return student
+//			}
+		}
+	}
+	Aggregate CourseExecutionAggregate {
+		// The domain event is declared in the aggregate, this is already supported by the grammar
+		DomainEvent RemoveCourseExecutionEvent {
+			Integer aggregateId
+		// The domain event constructor, not supported by the grammar
+//			def RemoveCourseExecutionEvent(Integer id) {
+//				this.aggregateId = id
+//			}
+		}
+		DomainEvent UnenrolledStudentEvent {
+			Integer aggregateId
+			Integer studentId
+		// another event constructor
+//			def UnenrolledStudentEvent(Integer id, Integer studentId) {
+//				this.aggregateId = id
+//				this.studentId = studentId
+//			}
+		}
+		ValueObject CourseExecutionValue {
+			String id
+			String courseId
+			String acronym
+//			def CourseExecutionValue(CourseExecutionEntity courseExecutionEntity) {
+//				this.id = courseExecutionEntity.id;
+//			}
+		}
+		Entity CourseExecutionEntity {
+			aggregateRoot
+			String id key
+			String courseId
+			String acronym
+			- List<Student> students
+			Repository CourseExecutionRepository {
+				@CourseExecutionEntity findCourseExecutionById(String courseExecutionId);
+				@Student findStudentByCourseExecutionIdAndByStudentId(String courseExecutionId, Integer studentId);
+			}
+		}
+		Entity Student {
+			Integer id key
+			String name
+			String username
+		}
+	}
+}
+
+BoundedContext TopicContext {
+	Aggregate TopicAggregate{
+		ValueObject TopicValue {
+		}
+		Entity TopicEntity {
+			aggregateRoot
+			String id key
+			String courseId
+			String name
+			Repository TopicRepository {
+				@TopicEntity findTopicById(String id);
+			}
+		}
+	}
+}
+
+BoundedContext QuizContext {
+	Application {
+		Service QuizServices {
+			@QuizValue generateQuiz();			
+		}
+	}
+	Aggregate QuizAggregate {
+		ValueObject QuizValue {
+		}
+		Entity QuizEntity {
+			aggregateRoot
+			String id key
+			String courseExecutionId
+			DateTime availableDate
+			DateTime conclusionDate
+			- List<QuizQuestion> quizQuestions
+			Repository QuizRepository {
+				@QuizEntity findQuizById(String id);
+			}
+		}
+		Entity QuizQuestion {
+			String question
+		}
+	}
+}
+
+BoundedContext TournamentContext {
+	Application {
+		Functionality removeCourseExecutionFunctionality {
+			TournamentContext.TournamentServices.removeTournamentService
+		}
+			
+		Functionality unenrolledStudentService {
+			TournamentContext.TournamentServices.unenrolledStudentService
+		}
+		
+		Functionality createTournament {
+			CourseExecutionContext.CourseExecutionServices.getCourseExecutionByCourseExecutionId
+			QuizContext.QuizServices.generateQuiz
+			TournamentContext.TournamentServices.createTournament
+		}
+		
+		Functionality addParticipant {
+			CourseExecutionContext.CourseExecutionServices.getCourseExecutionByCourseExecutionId
+			CourseExecutionContext.CourseExecutionServices.getStudentByCourseExecutionIdAndStudentId
+			TournamentContext.TournamentServices.addParticipant
+	}
+
+	// The functionalities are non-ACID transactions, can invoke more than one service
+	// The functionalities represent inter-aggregate interactions		
+//		Functionalities TournamentFunctionalities {
+//			// this functionality handles event RemoveCourseExecutionEvent and makes the tournament inactive
+//			void removeCourseExecutionFunctionality(@Tournament tournament) {
+//				TournamentServices.removeTournamentService(tournament);
+//			}
+//			void unenrolledStudentFunctionality(@Tournament tournament, @UnenrolledStudentEvent ceEvent) {
+//				TournamentServices.unenrolledStudentService(@Tournament tournament, ceEvent);
+//			}
+//			// this complex functionality can be seen as a saga
+//			void createTournament(@Tournament tournamentInfo) {
+//				CourseExecutionValue courseExecutionValue = CourseExecutionServices.getCourseExecutionByCourseExecutionId(tournamentInfo.courseExecution.id);
+//				
+//				// this is not implemented here for the sake of simplicity
+//				QuizValue quizValue = QuizServices.generateQuiz(tournamentInfo.topics);
+//				
+//				TournamentServices.createTournament(tournamentInfo, courseExecutionValue, quizValue);
+//			}
+//			void addParticipant(@Tournament tournament, Integer courseExecutionEntityId, Integer studentId) {
+//				CourseExecution courseExecution = CourseExecutionServices.getCourseExecutionByCourseExecutionId(courseExecutionEntityId)
+//				Student student = CourseExecutionServices.getStudentByCourseExecutionIdAndByStudentId(courseExecutionEntityId, studentId)
+//				
+//				Participant participant = Student(courseExecution, student)
+//				
+//				TournamentServices.addParticipant(tournament, participant)
+//			} 
+//		}
+	// The services are atomic transactions	
+	Service TournamentServices {
+			// this functionality handles event RemoveCourseExecutionEvent and deletes tournament
+			void removeTournamentService(@Tournament tournament);
+//			{
+//				delete tournament
+//			}
+			// this functionality handles event 
+			void unenrolledStudentService(@Tournament tournament, @UnenrolledStudentEvent usEvent);
+//			{
+//				update tournament.participants
+//					to tournament.participants.filter(participant -> participant.id != usEvent.studentId)
+//			}
+			void createTournament(@Tournament tournamentInfo, @CourseExecutionValue tournamentCourseExecution, @QuizValue tournamentQuiz);
+//			{
+//				create tournament = Tournament()
+//				update tournament.startTime = tournamentInfo.startTime
+//				update tournament.endTime = tournamentInfo.endTime
+//				update tournament.topics = tournamentInfo.topics
+//				update tournament.tournamentCourseExecution = tournamentCourseExecution
+//				update tourmanent.tournamentQuiz = tournamentQuiz
+//			}
+			void addParticipant(@Tournament tournament, Participant participant);
+//			{
+//				update participant.enrollTime = now
+//				update tournament.participants = tournamentParticipants.add(participant)
+//			}
+		}
+}
+
+//	AntiCorruptionTranslation {
+//		Entity CourseExecution mapping CourseExecutionContext::CourseExecutionAggregate
+//											// not considering the inter-invariants anymore but declaring
+//											// the events that implement the invariants
+//											  synchonizes using RemoveCourseExecutionEvent { 
+//			Integer id 
+//			String acronym 
+//		
+//			CourseExecution(CourseExecutionEntity courseExecutionEntity) {
+//				this.id = courseExecutionEntity.id
+//				this.acronym = courseExecutionEntity.acronym
+//			}
+//		}
+//		Entity Student mapping CourseExecutionContext::CourseExecutionAggregate
+//									  synchronizes using UnenrolledStudentEvent {
+//			Integer id
+//			Integer studentId 
+//			String name
+//			String username
+//			DateTime enrollTime
+//		
+//			Student(CourseExecutionContext::CourseExecutionAggregate::CourseExecutionEntity courseExecutionEntity, 
+//					CourseExecutionContext::CourseExecutionAggregate::Student student) {
+//				this.id = courseExecutionEntity.id
+//				this.studentId = student.id
+//				this.name = student.name
+//				this.username = student.username
+//				this.enrollTime = DateTime.now()
+//			}
+//		}	
+//	}
+Aggregate TournamentAggregate {
+	// This part is completely new, I've decided not to use "subscribe" because it also includes the handling
+//		EventHandling {
+//			handle event: RemoveCourseExecutionEvent {
+//				// this is the condition, root refers to an aggregate root instance, actually it says that all tournaments which are
+//				// of course execution id have to process the event
+//				active: root.courseExecution.id == event.aggregateId
+//				// the event processing is done by a functionality
+//				process: TournamentFunctionalities.removeCourseExecutionFunctionality(root)
+//			}
+//			handle event: UnenrolledStudentEvent {
+//				// this is the condition, root refers to an aggregate root instance and it includes the student
+//				active: root.courseExecution.id == event.aggregateId 
+//						&& root.participants.anyMatch(participant -> participant.id == event.studentId
+//				// the event processing is done by a functionality
+//				process: TournamentFunctionalities.unenrolledStudentFunctionality(root, event)
+//			}
+//		}
+	Entity Tournament {
+		aggregateRoot
+		Integer id
+		DateTime startTime
+		DateTime endTime
+		- TournamentCourseExecution tournamentCourseExecution
+		- List<TournamentTopic> tournamentTopics
+		- List<Participant> participants
+		- TournamentQuiz tournamentQuiz
+		Repository TournamentRepository {
+				@Tournament findTournamentById(String tournamentId);
+			}
+	}
+	Entity TournamentCourseExecution uses CourseExecutionContext::CourseExecutionAggregate::CourseExecutionValue
+		
+		Entity TournamentTopic uses TopicContext::TopicAggregate::TopicValue
+ 
+		Entity Participant 
+//		uses Student
+
+		Entity TournamentQuiz uses QuizContext::QuizAggregate::QuizValue
+//		uses ...
+//		Invariant courseExecutionIsFinal {
+//			final root.tournamentCourseExecution.id
+//		}
+//
+//		Invariant finalAfterStart {
+//			if (now > root.startTime) 
+//			then (final root.startTime 
+//				root.endTime
+//				root.participants
+//				root.numberOfQuestions 
+//				root.tournamentTopics
+//			) 
+//		}
+//
+//		Invariant startBeforeEnd {
+//			root.startTime < root.endTime
+//		}
+//		
+//		Invariant participantsBelongToCourseExecution {
+//			root.participants.allMatch(participant -> participant.id == root.tournamentCourseExecution.id) 
+//		}
+//
+//		Invariant studentDoesNotParticipateTwice {
+//			root.participants.count() == root.participants.map(participant -> participant.id).distinct().count()
+//		}
+//		
+//		Invariant participantEnrollBeforeStart {
+//			root.participants.allMatch(participant -> participant.enrollTime < root.startTime)	
+//		}
+}
+
+}
