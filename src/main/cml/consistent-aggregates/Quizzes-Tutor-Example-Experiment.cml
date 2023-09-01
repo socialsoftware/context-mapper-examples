@@ -50,31 +50,45 @@ BoundedContext CourseExecutionContext {
 		// The domain event is declared in the aggregate, this is already supported by the grammar
 		DomainEvent RemoveCourseExecutionEvent {
 			Integer aggregateId
-		// The domain event constructor, not supported by the grammar
-//			def RemoveCourseExecutionEvent(Integer id) {
-//				this.aggregateId = id
-//			}
+			// The domain event constructor, not supported by the grammar
+			constructor RemoveCourseExecutionEvent(Integer id) {
+				this.aggregateId = id;
+			}
 		}
 		DomainEvent UnenrolledStudentEvent {
-			Integer aggregateId
+			String aggregateId
 			Integer studentId
-		// another event constructor
-//			def UnenrolledStudentEvent(Integer id, Integer studentId) {
-//				this.aggregateId = id
-//				this.studentId = studentId
-//			}
+			// another event constructor
+			constructor UnenrolledStudentEvent(Integer id, Integer studentId) {
+				this.aggregateId = id;
+				this.studentId = studentId; 
+			}
 		}
 		ValueObject CourseExecutionValue {
-			String id
-			String courseId
+			Integer id
 			String acronym
-//			def CourseExecutionValue(CourseExecutionEntity courseExecutionEntity) {
-//				this.id = courseExecutionEntity.id;
-//			}
+			constructor CourseExecutionValue(@CourseExecutionEntity courseExecutionEntity) {
+				this.id = courseExecutionEntity.id;
+				this.acronym = courseExecutionEntity.acronym;
+			}
+		}
+		ValueObject StudentValue {
+			Integer id
+			Integer studentId
+			String name
+			String username
+			DateTime enrollTime
+			constructor Student(@CourseExecutionEntity courseExecutionEntity, @Student student) {
+				this.id = courseExecutionEntity.id; 
+				this.studentId = student.id;
+				this.name = student.name;
+				this.username = student.username; 
+				this.enrollTime = now;  
+			}
 		}
 		Entity CourseExecutionEntity {
 			aggregateRoot
-			String id key
+			Integer id key
 			String courseId
 			String acronym
 			- List<Student> students
@@ -94,10 +108,16 @@ BoundedContext CourseExecutionContext {
 BoundedContext TopicContext {
 	Aggregate TopicAggregate{
 		ValueObject TopicValue {
+			int id
+			String name
+			constructor TopicAggregate(@TopicEntity topicEntity) {
+				this.id = topicEntity.id; 
+				this.name = topicEntity.name;
+			}
 		}
 		Entity TopicEntity {
 			aggregateRoot
-			String id key
+			Integer id key
 			String courseId
 			String name
 			Repository TopicRepository {
@@ -110,15 +130,25 @@ BoundedContext TopicContext {
 BoundedContext QuizContext {
 	Application {
 		Service QuizServices {
-			@QuizValue generateQuiz();			
+			@QuizValue generateQuiz();
 		}
 	}
 	Aggregate QuizAggregate {
 		ValueObject QuizValue {
+			Integer id
+			DateTime availableDate
+			DateTime conclusionDate
+			int numberOfQuestions
+			constructor QuizValue(@QuizEntity quizEntity) {
+				this.id = quizEntity.id;
+				this.availableDate = quizEntity.availableDate;
+				this.conclusionDate = quizEntity.conclusionDate;
+				this.numberOfQuestions = quizEntity.quizQuestions.count();
+			}
 		}
 		Entity QuizEntity {
 			aggregateRoot
-			String id key
+			Integer id key
 			String courseExecutionId
 			DateTime availableDate
 			DateTime conclusionDate
@@ -136,27 +166,26 @@ BoundedContext QuizContext {
 BoundedContext TournamentContext {
 	Application {
 		Functionality removeCourseExecutionFunctionality {
-			TournamentContext.TournamentServices.removeTournamentService
+			TournamentContext.TournamentServices.removeTournamentService;
 		}
 			
 		Functionality unenrolledStudentService {
-			TournamentContext.TournamentServices.unenrolledStudentService
+			TournamentContext.TournamentServices.unenrolledStudentService;
 		}
 		
 		Functionality createTournament {
-			CourseExecutionContext.CourseExecutionServices.getCourseExecutionByCourseExecutionId
-			QuizContext.QuizServices.generateQuiz
-			TournamentContext.TournamentServices.createTournament
+			CourseExecutionContext.CourseExecutionServices.getCourseExecutionByCourseExecutionId;
+			QuizContext.QuizServices.generateQuiz;
+			TournamentContext.TournamentServices.createTournament;
 		}
 		
 		Functionality addParticipant {
-			CourseExecutionContext.CourseExecutionServices.getCourseExecutionByCourseExecutionId
-			CourseExecutionContext.CourseExecutionServices.getStudentByCourseExecutionIdAndStudentId
-			TournamentContext.TournamentServices.addParticipant
+			CourseExecutionContext.CourseExecutionServices.getCourseExecutionByCourseExecutionId;
+			CourseExecutionContext.CourseExecutionServices.getStudentByCourseExecutionIdAndStudentId;
+			TournamentContext.TournamentServices.addParticipant;
 	}
-
-	// The functionalities are non-ACID transactions, can invoke more than one service
-	// The functionalities represent inter-aggregate interactions		
+		// The functionalities are non-ACID transactions, can invoke more than one service
+		// The functionalities represent inter-aggregate interactions		
 //		Functionalities TournamentFunctionalities {
 //			// this functionality handles event RemoveCourseExecutionEvent and makes the tournament inactive
 //			void removeCourseExecutionFunctionality(@Tournament tournament) {
@@ -183,8 +212,8 @@ BoundedContext TournamentContext {
 //				TournamentServices.addParticipant(tournament, participant)
 //			} 
 //		}
-	// The services are atomic transactions	
-	Service TournamentServices {
+		// The services are atomic transactions	
+		Service TournamentServices {
 			// this functionality handles event RemoveCourseExecutionEvent and deletes tournament
 			void removeTournamentService(@Tournament tournament);
 //			{
@@ -205,47 +234,15 @@ BoundedContext TournamentContext {
 //				update tournament.tournamentCourseExecution = tournamentCourseExecution
 //				update tourmanent.tournamentQuiz = tournamentQuiz
 //			}
-			void addParticipant(@Tournament tournament, Participant participant);
+			void addParticipant(@Tournament tournament, @Participant participant);
 //			{
 //				update participant.enrollTime = now
 //				update tournament.participants = tournamentParticipants.add(participant)
 //			}
 		}
-}
-
-//	AntiCorruptionTranslation {
-//		Entity CourseExecution mapping CourseExecutionContext::CourseExecutionAggregate
-//											// not considering the inter-invariants anymore but declaring
-//											// the events that implement the invariants
-//											  synchonizes using RemoveCourseExecutionEvent { 
-//			Integer id 
-//			String acronym 
-//		
-//			CourseExecution(CourseExecutionEntity courseExecutionEntity) {
-//				this.id = courseExecutionEntity.id
-//				this.acronym = courseExecutionEntity.acronym
-//			}
-//		}
-//		Entity Student mapping CourseExecutionContext::CourseExecutionAggregate
-//									  synchronizes using UnenrolledStudentEvent {
-//			Integer id
-//			Integer studentId 
-//			String name
-//			String username
-//			DateTime enrollTime
-//		
-//			Student(CourseExecutionContext::CourseExecutionAggregate::CourseExecutionEntity courseExecutionEntity, 
-//					CourseExecutionContext::CourseExecutionAggregate::Student student) {
-//				this.id = courseExecutionEntity.id
-//				this.studentId = student.id
-//				this.name = student.name
-//				this.username = student.username
-//				this.enrollTime = DateTime.now()
-//			}
-//		}	
-//	}
-Aggregate TournamentAggregate {
-	// This part is completely new, I've decided not to use "subscribe" because it also includes the handling
+	}
+	Aggregate TournamentAggregate {
+		// This part is completely new, I've decided not to use "subscribe" because it also includes the handling
 //		EventHandling {
 //			handle event: RemoveCourseExecutionEvent {
 //				// this is the condition, root refers to an aggregate root instance, actually it says that all tournaments which are
@@ -262,57 +259,55 @@ Aggregate TournamentAggregate {
 //				process: TournamentFunctionalities.unenrolledStudentFunctionality(root, event)
 //			}
 //		}
-	Entity Tournament {
-		aggregateRoot
-		Integer id
-		DateTime startTime
-		DateTime endTime
-		- TournamentCourseExecution tournamentCourseExecution
-		- List<TournamentTopic> tournamentTopics
-		- List<Participant> participants
-		- TournamentQuiz tournamentQuiz
-		Repository TournamentRepository {
+		Entity Tournament {
+			aggregateRoot
+			Integer id
+			DateTime startTime
+			DateTime endTime
+			- TournamentCreator tournamentCreator
+			- TournamentCourseExecution tournamentCourseExecution
+			- List<TournamentTopic> tournamentTopics
+			- List<Participant> participants
+			- TournamentQuiz tournamentQuiz
+			Repository TournamentRepository {
 				@Tournament findTournamentById(String tournamentId);
 			}
-	}
-	Entity TournamentCourseExecution uses CourseExecutionContext::CourseExecutionAggregate::CourseExecutionValue
-		
+		}
+		Entity TournamentCreator uses CourseExecutionContext::CourseExecutionAggregate::StudentValue
+		Entity TournamentCourseExecution uses CourseExecutionContext::CourseExecutionAggregate::CourseExecutionValue
 		Entity TournamentTopic uses TopicContext::TopicAggregate::TopicValue
- 
-		Entity Participant 
-//		uses Student
-
+		Entity Participant	uses CourseExecutionContext::CourseExecutionAggregate::StudentValue
 		Entity TournamentQuiz uses QuizContext::QuizAggregate::QuizValue
-//		uses ...
-//		Invariant courseExecutionIsFinal {
-//			final root.tournamentCourseExecution.id
-//		}
-//
-//		Invariant finalAfterStart {
-//			if (now > root.startTime) 
-//			then (final root.startTime 
-//				root.endTime
-//				root.participants
-//				root.numberOfQuestions 
-//				root.tournamentTopics
-//			) 
-//		}
-//
-//		Invariant startBeforeEnd {
-//			root.startTime < root.endTime
-//		}
-//		
-//		Invariant participantsBelongToCourseExecution {
-//			root.participants.allMatch(participant -> participant.id == root.tournamentCourseExecution.id) 
-//		}
-//
-//		Invariant studentDoesNotParticipateTwice {
-//			root.participants.count() == root.participants.map(participant -> participant.id).distinct().count()
-//		}
-//		
-//		Invariant participantEnrollBeforeStart {
-//			root.participants.allMatch(participant -> participant.enrollTime < root.startTime)	
-//		}
+
+		Invariant courseExecutionIsFinal {
+			final root.tournamentCourseExecution.id 
+		}
+
+		Invariant finalAfterStart {
+			if (now > root.startTime) 
+			then (final root.startTime 
+				root.endTime
+				root.participants
+				root.tournamentTopics
+				root.tournamentQuiz
+			) 
+		}
+
+		Invariant startBeforeEnd {
+			root.startTime < root.endTime 
+		}
+		
+		Invariant participantsBelongToCourseExecution {
+			root.participants.allMatch(participant -> participant.id == root.tournamentCourseExecution.id)
+		}
+
+		Invariant studentDoesNotParticipateTwice {
+			root.participants.count() == root.participants.map(participant -> participant.id).distinct().count()
+		}
+		
+		Invariant participantEnrollBeforeStart {
+			root.participants.allMatch(participant -> participant.enrollTime < root.startTime)
+		}
+	}
 }
 
-}
