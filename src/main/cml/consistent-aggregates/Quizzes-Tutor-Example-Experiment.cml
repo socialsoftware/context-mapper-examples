@@ -51,39 +51,39 @@ BoundedContext CourseExecutionContext {
 		DomainEvent RemoveCourseExecutionEvent {
 			Integer aggregateId
 			// The domain event constructor, not supported by the grammar
-			constructor RemoveCourseExecutionEvent(Integer id) {
+			constructor RemoveCourseExecutionEvent(Integer id) { 
 				this.aggregateId = id;
 			}
 		}
 		DomainEvent UnenrolledStudentEvent {
-			String aggregateId
+			int aggregateId
 			Integer studentId
 			// another event constructor
-			constructor UnenrolledStudentEvent(Integer id, Integer studentId) {
+			constructor UnenrolledStudentEvent(int id, Integer studentId) {
 				this.aggregateId = id;
 				this.studentId = studentId; 
 			}
 		}
 		ValueObject CourseExecutionValue {
-			Integer id
+			int id
 			String acronym
 			constructor CourseExecutionValue(@CourseExecutionEntity courseExecutionEntity) {
 				this.id = courseExecutionEntity.id;
 				this.acronym = courseExecutionEntity.acronym;
-			}
+			} 
 		}
 		ValueObject StudentValue {
 			Integer id
 			Integer studentId
 			String name
 			String username
-			DateTime enrollTime
+			DateTime enrollTime 
 			constructor Student(@CourseExecutionEntity courseExecutionEntity, @Student student) {
 				this.id = courseExecutionEntity.id; 
 				this.studentId = student.id;
 				this.name = student.name;
 				this.username = student.username; 
-				this.enrollTime = now;  
+				this.enrollTime = now;
 			}
 		}
 		Entity CourseExecutionEntity {
@@ -110,7 +110,7 @@ BoundedContext TopicContext {
 		ValueObject TopicValue {
 			int id
 			String name
-			constructor TopicAggregate(@TopicEntity topicEntity) {
+			constructor TopicAggregate(@TopicEntity topicEntity) { 
 				this.id = topicEntity.id; 
 				this.name = topicEntity.name;
 			}
@@ -138,12 +138,12 @@ BoundedContext QuizContext {
 			Integer id
 			DateTime availableDate
 			DateTime conclusionDate
-			int numberOfQuestions
+			int numberOfQuestions 
 			constructor QuizValue(@QuizEntity quizEntity) {
 				this.id = quizEntity.id;
 				this.availableDate = quizEntity.availableDate;
 				this.conclusionDate = quizEntity.conclusionDate;
-				this.numberOfQuestions = quizEntity.quizQuestions.count();
+				this.numberOfQuestions = quizEntity.quizQuestions.count(); 
 			}
 		}
 		Entity QuizEntity {
@@ -153,9 +153,9 @@ BoundedContext QuizContext {
 			DateTime availableDate
 			DateTime conclusionDate
 			- List<QuizQuestion> quizQuestions
-			Repository QuizRepository {
-				@QuizEntity findQuizById(String id);
-			}
+//			Repository QuizRepository {
+//				@QuizEntity findQuizById(String id);
+//			}
 		}
 		Entity QuizQuestion {
 			String question
