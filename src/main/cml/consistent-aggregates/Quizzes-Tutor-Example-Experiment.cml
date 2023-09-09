@@ -7,43 +7,33 @@ ContextMap QuizzesTutor {
 	TournamentContext [D]<-[U] TopicContext
 
 	TournamentContext [D]<-[U] QuizContext
-}
+} 
 
-BoundedContext CourseExecutionContext {
-	Application {
-		Service CourseExecutionServices {
-			void removeCourseExecution(Integer courseExecutionId);
-//			{
-//				// service operations have body (current grammar does not allow)
-//				// the body can have the predicates update, query, create and delete
-//				// queries refer to queries in the repository
-//				query courseExecution = findCourseExecutionById(courseExecutionId)
-//				// deletes refer to entities obtained by queries
-//				delete courseExecution
-//				// When the service finishes the event is published (current grammar requires the definition of channels)
-//				// The event has a constructor to define the information it contains (current grammar does not have the constructor)
-//				publish RemoveCourseExecutionEvent(courseExecutionId)
-//			}
-			void removeStudentFromCourseExecution(Integer courseExecutionId, Integer studentId);
-//			{
-//				query courseExecution = findCourseExecutionById(courseExecutionId)
-//				// updates refer to attributes and can have use complex expressions
-//				update courseExecution.students to courseExecution.students.filter(student -> student.studentId != studentId)
-//				// the event is published
-//				publish UnenrolledStudentEvent(courseExecutionId,studentId) 
-//			}
-			@CourseExecutionValue getCourseExecutionByCourseExecutionId(Integer courseExecutionId);
-//			{
-//				// there are service operations that can be queries only
-//				query courseExecution = findCourseExecutionById(courseExecutionId)
-//				// the entity is returned
-//				return CourseExecutionValue(courseExecution)
-//			}
-			@Student getStudentByCourseExecutionIdAndStudentId(Integer courseExecutionId, Integer studentId);
-//			{
-//				query student = findStudentByCourseExecutionIdAndByStudentId(courseExecutionId, studentId)
-//				return student
-//			}
+BoundedContext CourseExecutionContext { 
+	Application { 
+		Service CourseExecutionServices { 
+			void removeCourseExecution(Integer courseExecutionId)
+			{
+				CourseExecutionEntity courseExecution = findCourseExecutionById(courseExecutionId);
+				delete courseExecution;
+				publish RemoveCourseExecutionEvent(courseExecution.id)
+			}
+			void removeStudentFromCourseExecution(Integer courseExecutionId, Integer studentId)
+			{
+				CourseExecutionEntity courseExecution = findCourseExecutionById(courseExecutionId);
+				courseExecution.students = courseExecution.students.filter(student -> student.studentId != studentId);
+				publish UnenrolledStudentEvent(courseExecutionId,studentId)
+			}
+			@CourseExecutionValue getCourseExecutionByCourseExecutionId(Integer courseExecutionId)
+			{
+				CourseExecution courseExecution = findCourseExecutionById(courseExecutionId);
+				return CourseExecutionValue(courseExecution) 
+			}
+			@Student getStudentByCourseExecutionIdAndStudentId(Integer courseExecutionId, Integer studentId)
+			{
+				Student student = findStudentByCourseExecutionIdAndByStudentId(courseExecutionId, studentId);
+				return StudentValue(student)
+			}
 		}
 	}
 	Aggregate CourseExecutionAggregate {
@@ -51,39 +41,39 @@ BoundedContext CourseExecutionContext {
 		DomainEvent RemoveCourseExecutionEvent {
 			Integer aggregateId
 			// The domain event constructor, not supported by the grammar
-			constructor RemoveCourseExecutionEvent(Integer id) { 
-				this.aggregateId = id;
+			def void RemoveCourseExecutionEvent(Integer id) { 
+				this.aggregateId = id
 			}
 		}
 		DomainEvent UnenrolledStudentEvent {
 			int aggregateId
 			Integer studentId
 			// another event constructor
-			constructor UnenrolledStudentEvent(int id, Integer studentId) {
+			def void UnenrolledStudentEvent(int id, Integer studentId) {
 				this.aggregateId = id;
-				this.studentId = studentId; 
+				this.studentId = studentId
 			}
 		}
 		ValueObject CourseExecutionValue {
 			int id
 			String acronym
-			constructor CourseExecutionValue(@CourseExecutionEntity courseExecutionEntity) {
-				this.id = courseExecutionEntity.id;
-				this.acronym = courseExecutionEntity.acronym;
-			} 
+			def void CourseExecutionValue(@CourseExecutionEntity courseExecutionEntity) {
+				this.id = courseExecutionEntity.id; 
+				this.acronym = courseExecutionEntity.acronym
+			}
 		}
 		ValueObject StudentValue {
 			Integer id
 			Integer studentId
-			String name
+			String name 
 			String username
-			DateTime enrollTime 
-			constructor Student(@CourseExecutionEntity courseExecutionEntity, @Student student) {
-				this.id = courseExecutionEntity.id; 
+			DateTime enrollTime
+			def void StudentValue(@CourseExecutionEntity courseExecutionEntity, @Student student) { 
+				this.id = courseExecutionEntity.id;
 				this.studentId = student.id;
 				this.name = student.name;
 				this.username = student.username; 
-				this.enrollTime = now;
+				this.enrollTime = now
 			}
 		}
 		Entity CourseExecutionEntity {
@@ -93,8 +83,8 @@ BoundedContext CourseExecutionContext {
 			String acronym
 			- List<Student> students
 			Repository CourseExecutionRepository {
-				@CourseExecutionEntity findCourseExecutionById(String courseExecutionId);
-				@Student findStudentByCourseExecutionIdAndByStudentId(String courseExecutionId, Integer studentId);
+				@CourseExecutionEntity findCourseExecutionById(Integer courseExecutionId);
+				@Student findStudentByCourseExecutionIdAndByStudentId(Integer courseExecutionId, Integer studentId);
 			}
 		}
 		Entity Student {
@@ -110,9 +100,9 @@ BoundedContext TopicContext {
 		ValueObject TopicValue {
 			int id
 			String name
-			constructor TopicAggregate(@TopicEntity topicEntity) { 
+			def void TopicValue(@TopicEntity topicEntity) { 
 				this.id = topicEntity.id; 
-				this.name = topicEntity.name;
+				this.name = topicEntity.name
 			}
 		}
 		Entity TopicEntity {
@@ -135,27 +125,27 @@ BoundedContext QuizContext {
 	}
 	Aggregate QuizAggregate {
 		ValueObject QuizValue {
-			Integer id
+			Integer id 
 			DateTime availableDate
 			DateTime conclusionDate
-			int numberOfQuestions 
-			constructor QuizValue(@QuizEntity quizEntity) {
-				this.id = quizEntity.id;
+			int numberOfQuestions
+			def void QuizValue(@QuizEntity quizEntity) {
+				this.id = quizEntity.id; 
 				this.availableDate = quizEntity.availableDate;
 				this.conclusionDate = quizEntity.conclusionDate;
-				this.numberOfQuestions = quizEntity.quizQuestions.count(); 
+				this.numberOfQuestions = quizEntity.quizQuestions.count() 
 			}
 		}
 		Entity QuizEntity {
 			aggregateRoot
 			Integer id key
-			String courseExecutionId
+			String courseExecutionId 
 			DateTime availableDate
 			DateTime conclusionDate
 			- List<QuizQuestion> quizQuestions
-//			Repository QuizRepository {
-//				@QuizEntity findQuizById(String id);
-//			}
+			Repository QuizRepository {
+				@QuizEntity findQuizById(String id);
+			}
 		}
 		Entity QuizQuestion {
 			String question
@@ -165,100 +155,74 @@ BoundedContext QuizContext {
 
 BoundedContext TournamentContext {
 	Application {
-		Functionality removeCourseExecutionFunctionality {
-			TournamentContext.TournamentServices.removeTournamentService;
+		Functionality void removeCourseExecutionFunctionality(@TournamentValue tournamentValue) {
+			TournamentContext.TournamentServices.removeTournamentService(tournamentValue);
 		}
 			
-		Functionality unenrolledStudentService {
-			TournamentContext.TournamentServices.unenrolledStudentService;
+		Functionality void unenrolledStudentFunctionality(@Tournament tournamentValue, @UnenrolledStudentEvent usEvent) { 
+			TournamentContext.TournamentServices.unenrolledStudentService(tournamentValue.id, usEvent); 
 		}
 		
-		Functionality createTournament {
-			CourseExecutionContext.CourseExecutionServices.getCourseExecutionByCourseExecutionId;
-			QuizContext.QuizServices.generateQuiz;
-			TournamentContext.TournamentServices.createTournament;
+		Functionality void createTournamentFunctionality(@TournamentValue tournamentValue) { 
+			CourseExecutionValue courseExecutionValue = CourseExecutionContext.CourseExecutionServices.getCourseExecutionByCourseExecutionId(tournamentValue);
+			QuizValue quizValue = QuizContext.QuizServices.generateQuiz(tournamentValue.tournamentTopics);
+			TournamentContext.TournamentServices.createTournament(tournamentValue, courseExecutionValue, quizValue);
 		}
 		
-		Functionality addParticipant {
-			CourseExecutionContext.CourseExecutionServices.getCourseExecutionByCourseExecutionId;
-			CourseExecutionContext.CourseExecutionServices.getStudentByCourseExecutionIdAndStudentId;
-			TournamentContext.TournamentServices.addParticipant;
-	}
-		// The functionalities are non-ACID transactions, can invoke more than one service
-		// The functionalities represent inter-aggregate interactions		
-//		Functionalities TournamentFunctionalities {
-//			// this functionality handles event RemoveCourseExecutionEvent and makes the tournament inactive
-//			void removeCourseExecutionFunctionality(@Tournament tournament) {
-//				TournamentServices.removeTournamentService(tournament);
-//			}
-//			void unenrolledStudentFunctionality(@Tournament tournament, @UnenrolledStudentEvent ceEvent) {
-//				TournamentServices.unenrolledStudentService(@Tournament tournament, ceEvent);
-//			}
-//			// this complex functionality can be seen as a saga
-//			void createTournament(@Tournament tournamentInfo) {
-//				CourseExecutionValue courseExecutionValue = CourseExecutionServices.getCourseExecutionByCourseExecutionId(tournamentInfo.courseExecution.id);
-//				
-//				// this is not implemented here for the sake of simplicity
-//				QuizValue quizValue = QuizServices.generateQuiz(tournamentInfo.topics);
-//				
-//				TournamentServices.createTournament(tournamentInfo, courseExecutionValue, quizValue);
-//			}
-//			void addParticipant(@Tournament tournament, Integer courseExecutionEntityId, Integer studentId) {
-//				CourseExecution courseExecution = CourseExecutionServices.getCourseExecutionByCourseExecutionId(courseExecutionEntityId)
-//				Student student = CourseExecutionServices.getStudentByCourseExecutionIdAndByStudentId(courseExecutionEntityId, studentId)
-//				
-//				Participant participant = Student(courseExecution, student)
-//				
-//				TournamentServices.addParticipant(tournament, participant)
-//			} 
-//		}
+		Functionality void addParticipantFunctionality(Integer tournamentId, Integer courseExecutionEntityId, Integer studentId) {
+			CourseExecutionValue courseExecutionValue = CourseExecutionContext.CourseExecutionServices.getCourseExecutionByCourseExecutionId(courseExecutionEntityId);
+			StudentValue studentValue = CourseExecutionContext.CourseExecutionServices.getStudentByCourseExecutionIdAndStudentId(courseExecutionEntityId, studentId);
+			TournamentValue tournamentValue = TournamentContext.TournamentServices.getTournamentById(tournamentId);
+			TournamentContext.TournamentServices.addParticipant(tournamentValue, studentValue); 
+		}
 		// The services are atomic transactions	
-		Service TournamentServices {
+		Service TournamentServices { 
 			// this functionality handles event RemoveCourseExecutionEvent and deletes tournament
-			void removeTournamentService(@Tournament tournament);
-//			{
-//				delete tournament
-//			}
-			// this functionality handles event 
-			void unenrolledStudentService(@Tournament tournament, @UnenrolledStudentEvent usEvent);
-//			{
-//				update tournament.participants
-//					to tournament.participants.filter(participant -> participant.id != usEvent.studentId)
-//			}
-			void createTournament(@Tournament tournamentInfo, @CourseExecutionValue tournamentCourseExecution, @QuizValue tournamentQuiz);
-//			{
-//				create tournament = Tournament()
-//				update tournament.startTime = tournamentInfo.startTime
-//				update tournament.endTime = tournamentInfo.endTime
-//				update tournament.topics = tournamentInfo.topics
-//				update tournament.tournamentCourseExecution = tournamentCourseExecution
-//				update tourmanent.tournamentQuiz = tournamentQuiz
-//			}
-			void addParticipant(@Tournament tournament, @Participant participant);
-//			{
-//				update participant.enrollTime = now
-//				update tournament.participants = tournamentParticipants.add(participant)
-//			}
+			void removeTournamentService(@TournamentValue tournamentValue)
+			{
+				Tournament tournament = findTournamentById(tournamentValue.id);          
+				delete tournament
+			}
+			void unenrolledStudentService(@TournamentValue tournamentValue, @UnenrolledStudentEvent usEvent)
+			{
+				Tournament tournament = findTournamentById(tournamentValue.id);
+				tournament.participants
+					= tournament.participants.filter(participant -> participant.id != usEvent.studentId)
+			}
+			@TournamentValue getTournamentById(Integer tournamentId) {
+				Tournament tournament = findTournamentById(tournamentId);
+				return TournamentValue(tournament)
+			}
+			void createTournament(@TournamentValue tournamentValue, @CourseExecutionValue tournamentCourseExecution, @QuizValue tournamentQuiz)
+			{
+				create Tournament(tournamentValue)
+			}
+			void addParticipant(@TournamentValue tournamentValue, @StudentValue studentValue)
+			{
+				Tournament tournament = findTournamentById(tournamentValue.id); 
+				studentValue.enrollTime = now;
+				Participant tournamentParticipant = Participant(studentValue)
+//				tournament.participants = tournamentParticipants.add(studentValue)
+			}
 		}
 	}
 	Aggregate TournamentAggregate {
-		// This part is completely new, I've decided not to use "subscribe" because it also includes the handling
-//		EventHandling {
-//			handle event: RemoveCourseExecutionEvent {
-//				// this is the condition, root refers to an aggregate root instance, actually it says that all tournaments which are
-//				// of course execution id have to process the event
-//				active: root.courseExecution.id == event.aggregateId
-//				// the event processing is done by a functionality
-//				process: TournamentFunctionalities.removeCourseExecutionFunctionality(root)
-//			}
-//			handle event: UnenrolledStudentEvent {
-//				// this is the condition, root refers to an aggregate root instance and it includes the student
-//				active: root.courseExecution.id == event.aggregateId 
-//						&& root.participants.anyMatch(participant -> participant.id == event.studentId
-//				// the event processing is done by a functionality
-//				process: TournamentFunctionalities.unenrolledStudentFunctionality(root, event)
-//			}
-//		}
+		handle rceEvent CourseExecutionContext::CourseExecutionAggregate::RemoveCourseExecutionEvent {
+			activate root.tournamentCourseExecution.id == rceEvent.aggregateId
+			process removeCourseExecutionFunctionality(root)
+		}
+		handle usEvent CourseExecutionContext::CourseExecutionAggregate::UnenrolledStudentEvent {
+			activate root.tournamentCourseExecution.id == usEvent.aggregateId 
+						&& root.participants.anyMatch(participant -> participant.id == usEvent.studentId)
+			process unenrolledStudentFunctionality(root, usEvent)
+		}
+		
+		ValueObject TournamentValue {
+			Integer id
+			def void TournamentValue(@Tournament tournament) { 
+				this.id = tournament.id
+			}
+		}
 		Entity Tournament {
 			aggregateRoot
 			Integer id
@@ -269,16 +233,22 @@ BoundedContext TournamentContext {
 			- List<TournamentTopic> tournamentTopics
 			- List<Participant> participants
 			- TournamentQuiz tournamentQuiz
+			
+			def void Tournament(@TournamentValue tournamentValue); 
+			
 			Repository TournamentRepository {
-				@Tournament findTournamentById(String tournamentId);
+				@Tournament findTournamentById(Integer id);
 			}
 		}
 		Entity TournamentCreator uses CourseExecutionContext::CourseExecutionAggregate::StudentValue
 		Entity TournamentCourseExecution uses CourseExecutionContext::CourseExecutionAggregate::CourseExecutionValue
 		Entity TournamentTopic uses TopicContext::TopicAggregate::TopicValue
 		Entity Participant	uses CourseExecutionContext::CourseExecutionAggregate::StudentValue
+		{
+			def void Participant(@StudentValue studentValue);
+		}
 		Entity TournamentQuiz uses QuizContext::QuizAggregate::QuizValue
-
+  
 		Invariant courseExecutionIsFinal {
 			final root.tournamentCourseExecution.id 
 		}
@@ -293,7 +263,7 @@ BoundedContext TournamentContext {
 			) 
 		}
 
-		Invariant startBeforeEnd {
+		Invariant startBeforeEnd { 
 			root.startTime < root.endTime 
 		}
 		
