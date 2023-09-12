@@ -2,14 +2,14 @@
 ContextMap QuizzesTutor {
 	contains TournamentContext, CourseExecutionContext, TopicContext, QuizContext
 
-	TournamentContext [SK]<->[SK] CourseExecutionContext
+	TournamentContext [D]<-[U] CourseExecutionContext
 
 	TournamentContext [D]<-[U] TopicContext
 
 	TournamentContext [D]<-[U] QuizContext
 } 
 
-BoundedContext CourseExecutionContext { 
+BoundedContext CourseExecutionContext {
 	Application { 
 		Service CourseExecutionServices { 
 			void removeCourseExecution(Integer courseExecutionId)
@@ -36,11 +36,9 @@ BoundedContext CourseExecutionContext {
 			}
 		}
 	}
-	Aggregate CourseExecutionAggregate {
-		// The domain event is declared in the aggregate, this is already supported by the grammar
+	Aggregate CourseExecutionAggregate { 
 		DomainEvent RemoveCourseExecutionEvent {
 			Integer aggregateId
-			// The domain event constructor, not supported by the grammar
 			def void RemoveCourseExecutionEvent(Integer id) { 
 				this.aggregateId = id
 			}
@@ -48,7 +46,6 @@ BoundedContext CourseExecutionContext {
 		DomainEvent UnenrolledStudentEvent {
 			int aggregateId
 			Integer studentId
-			// another event constructor
 			def void UnenrolledStudentEvent(int id, Integer studentId) {
 				this.aggregateId = id;
 				this.studentId = studentId
@@ -170,9 +167,12 @@ BoundedContext TournamentContext {
 		}
 		
 		Functionality void addParticipantFunctionality(Integer tournamentId, Integer courseExecutionEntityId, Integer studentId) {
-			CourseExecutionValue courseExecutionValue = CourseExecutionContext.CourseExecutionServices.getCourseExecutionByCourseExecutionId(courseExecutionEntityId);
-			StudentValue studentValue = CourseExecutionContext.CourseExecutionServices.getStudentByCourseExecutionIdAndStudentId(courseExecutionEntityId, studentId);
-			TournamentValue tournamentValue = TournamentContext.TournamentServices.getTournamentById(tournamentId);
+			CourseExecutionValue courseExecutionValue = 
+			       CourseExecutionContext.CourseExecutionServices.getCourseExecutionByCourseExecutionId(courseExecutionEntityId);
+			StudentValue studentValue = 
+			       CourseExecutionContext.CourseExecutionServices.getStudentByCourseExecutionIdAndStudentId(courseExecutionEntityId, studentId);
+			TournamentValue tournamentValue = 
+			       TournamentContext.TournamentServices.getTournamentById(tournamentId);
 			TournamentContext.TournamentServices.addParticipant(tournamentValue, studentValue); 
 		}
 		// The services are atomic transactions	
@@ -243,7 +243,7 @@ BoundedContext TournamentContext {
 		Entity TournamentCreator uses CourseExecutionContext::CourseExecutionAggregate::StudentValue
 		Entity TournamentCourseExecution uses CourseExecutionContext::CourseExecutionAggregate::CourseExecutionValue
 		Entity TournamentTopic uses TopicContext::TopicAggregate::TopicValue
-		Entity Participant	uses CourseExecutionContext::CourseExecutionAggregate::StudentValue
+		Entity Participant uses CourseExecutionContext::CourseExecutionAggregate::StudentValue
 		{
 			def void Participant(@StudentValue studentValue);
 		}
